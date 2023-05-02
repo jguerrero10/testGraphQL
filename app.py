@@ -20,6 +20,10 @@ client = Client(transport=transport, fetch_schema_from_transport=True)
 query = gql(QUERY)
 
 
+########################################################################
+#    /netbox is an endpoint that fetches the list of devices from the
+#    GraphQL server and returns a list of DeviceInfo objects.
+#######################################################################
 @app.get("/netbox", response_model=List[DeviceInfo])
 def netbox() -> List[DeviceInfo]:
     result = client.execute(query)
@@ -40,6 +44,10 @@ def netbox() -> List[DeviceInfo]:
     return results
 
 
+########################################################################
+#    /payload is an endpoint that writes a file with information about
+#               the name and current date of the project
+#######################################################################
 @app.get("/payload")
 async def payload() -> str:
     data = f"Name: {NAME} Date ({date.today().strftime('%Y-%m-%d')})"
