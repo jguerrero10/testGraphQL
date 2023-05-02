@@ -2,82 +2,49 @@ from datetime import date
 from typing import List
 
 from fastapi import FastAPI
-from gql import gql, Client
+from gql import Client, gql
 from gql.transport.aiohttp import AIOHTTPTransport
+from SETTINGS import FILENAME, NAME, TOKEN, URL, QUERY
+from models import DeviceInfo
 
 app = FastAPI()
 
-# Select your transport with a defined url endpoint
-transport = AIOHTTPTransport(url="https://demo.netbox.dev/graphql/")
+transport = AIOHTTPTransport(
+    url=URL,
+    headers={"Authorization": f"Token {TOKEN}"},
+)
 
-# Create a GraphQL client using the defined transport
 client = Client(transport=transport, fetch_schema_from_transport=True)
 
 # Provide a GraphQL query
-query = gql(
-    """
-    {
-    device_list {
-        id,
-        name,
-        device_type {
-            id,
-            created,
-            model,
-            slug,
-            part_number,
-            manufacturer {
-                id,
-                name
-            }
-        },
-        tenant {
-            id,
-            name
-        },
-        image_attachments {
-            id,
-            name
-        },
-        primary_ip4 {
-            id,
-            address
-        }
-    }
-}
-"""
-)
+query = gql(QUERY)
 
 
-@app.get("/netbox")
-def netbox() -> List[dict]:
+@app.get("/netbox", response_model=List[DeviceInfo])
+def netbox() -> List[DeviceInfo]:
     result = client.execute(query)
-    devices = result.get('device_list')
+    devices = result.get("device_list", [])
     results = []
-    for device in devices:
-        device_info = {
-            "id": device["id"],
-            "name": device["name"],
-            "manufacturer": device["device_type"]["manufacturer"]["name"],
-        }
 
-        ipv4 = (
-            device["primary_ip4"]["address"]
-            if device["primary_ip4"]
-            else "0.0.0.0"
+    for device in devices:
+        ipv4 = device.get("primary_ip4", {}).get("address", "0.0.0.0")
+        device_info = DeviceInfo(
+            id=device.get("id"),
+            name=device.get("name"),
+            manufacturer=device.get("device_type", {})
+            .get("manufacturer", {})
+            .get("name"),
+            ipv4=ipv4,
         )
-        device_info["ipv4"] = ipv4
         results.append(device_info)
     return results
 
 
 @app.get("/payload")
 async def payload() -> str:
-    payload = (
-        f"Nombre: Joel Guerrero Fecha ({date.today().strftime('%Y-%m-%d')})"
-    )
+    data = f"Name: {NAME} Date ({date.today().strftime('%Y-%m-%d')})"
 
-    with open("payload.txt", "w") as file:
-        file.write(payload)
+    with open(FILENAME, "w") as file:
+        file.write(data)
 
-    return payload
+    return data
